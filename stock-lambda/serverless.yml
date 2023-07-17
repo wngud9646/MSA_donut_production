@@ -1,0 +1,47 @@
+service: stock-lambda
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-northeast-2
+
+
+functions:
+  consumer:
+    handler: index.consumer
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [sqsQueue, Arn]
+
+resources:
+  Resources:
+    snsTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        DisplayName: stock_empty
+        TopicName: stock_empty
+
+    sqsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: stock_queue
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [sqsDlqQueue, Arn]
+          maxReceiveCount: 5
+
+    sqsDlqQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: dead_letter_queue
+
+    snsSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt: [sqsQueue, Arn]
+        TopicArn:
+          Ref: snsTopic
